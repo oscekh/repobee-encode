@@ -28,31 +28,49 @@ class EncodeHooks(plug.Plugin):
 
         out = []
         pattern = "*.java"
-        path = pathlib.Path(path)
 
-        filepaths = [
-            p
-            for p in path.resolve().rglob(pattern)
-            if ".git" not in str(p).split(os.sep)
-        ]
+        try:
+            path = pathlib.Path(path)
 
-        for path in filepaths:
-            out.append(str(path))
+            if not path.exists():
+                return plug.HookResult(
+                    hook=PLUGIN_NAME,
+                    status=plug.Status.ERROR,
+                    msg=f"student repo {path!s} does not exist",
+                )
 
-            from_encoding = "iso-8859-1"
-            to_encoding = "utf-8"
+            # error on rglob
+            filepaths = [
+                p
+                for p in path.resolve().rglob(pattern)
+                if ".git" not in str(p).split(os.sep)
+            ]
 
-            with path.open(mode="r", encoding=from_encoding) as f:
-                content = f.read()
+            for path in filepaths:
+                out.append(str(path))
 
-            tempfile = path.with_name(path.stem + "_tmp" + path.suffix)
-            tempfile.write_text(content, encoding=to_encoding)
-            #tempfile.replace(path)
+                from_encoding = "iso-8859-1"
+                to_encoding = "utf-8"
 
-        output = os.linesep.join(out)
+                # error when encoding is wrong
+                with path.open(mode="r", encoding=from_encoding) as f:
+                    content = f.read()
 
-        return plug.HookResult(
-            hook=PLUGIN_NAME,
-            status=plug.Status.SUCCESS,
-            msg=output
-        )
+                # ValueError if path doesn't have a name
+                tempfile = path.with_name(path.stem + "_tmp" + path.suffix)
+                tempfile.write_text(content, encoding=to_encoding)
+                #tempfile.replace(path)
+
+            output = os.linesep.join(out)
+
+            return plug.HookResult(
+                hook=PLUGIN_NAME,
+                status=plug.Status.SUCCESS,
+                msg=output
+            )
+        except Exception as exc:
+            return plug.HookResult(
+                hook=PLUGIN_NAME,
+                status=plug.Status.ERROR,
+                msg=str(exc),
+            )
